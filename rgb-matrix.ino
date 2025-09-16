@@ -1,15 +1,15 @@
-// 2-dimensional array of row pin numbers:
-const int rows[8] = {
+const int MATRIX_SIZE = 8;
+const unsigned long SERIAL_CHECK_INTERVAL = 100;
+
+const int rows[MATRIX_SIZE] = {
   2, 7, 19, 5, 13, 18, 12, 16
 };
-// 2-dimensional array of column pin numbers:
-const int columns[8] = {
+
+const int columns[MATRIX_SIZE] = {
   6, 11, 10, 3, 17, 4, 8, 9
 };
-// 2-dimensional array of pixels:
-int pixels[8][8];
 
-typedef bool matrixOutput[8][8];
+typedef bool matrixOutput[MATRIX_SIZE][MATRIX_SIZE];
 
 enum WeatherType {
   SUN,
@@ -17,23 +17,25 @@ enum WeatherType {
   RAIN,
   SNOW,
   WIND,
-  UNKNOWN
+  UNKNOWN,
+  CLEAR
 };
 
+int pixels[MATRIX_SIZE][MATRIX_SIZE];
 WeatherType currentWeatherType = UNKNOWN;
+unsigned long lastSerialCheck = 0;
 
 const matrixOutput sun = {
-  { 0, 0, 0, 1, 1, 0, 0, 0 },
+  { 1, 0, 0, 1, 1, 0, 0, 1 },
   { 0, 1, 0, 1, 1, 0, 1, 0 },
-  { 0, 0, 0, 1, 1, 0, 0, 0 },
-  { 1, 1, 1, 0, 0, 1, 1, 1 },
-  { 1, 1, 1, 0, 0, 1, 1, 1 },
-  { 0, 0, 0, 1, 1, 0, 0, 0 },
+  { 0, 0, 1, 1, 1, 1, 0, 0 },
+  { 1, 1, 1, 1, 1, 1, 1, 1 },
+  { 1, 1, 1, 1, 1, 1, 1, 1 },
+  { 0, 0, 1, 1, 1, 1, 0, 0 },
   { 0, 1, 0, 1, 1, 0, 1, 0 },
-  { 0, 0, 0, 1, 1, 0, 0, 0 }
+  { 1, 0, 0, 1, 1, 0, 0, 1 }
 };
 
-// Improved cloud with better shape
 const matrixOutput cloud = {
   { 0, 0, 0, 0, 0, 0, 0, 0 },
   { 0, 0, 1, 1, 1, 1, 0, 0 },
@@ -45,7 +47,6 @@ const matrixOutput cloud = {
   { 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 
-// Enhanced rain with cloud and raindrops
 const matrixOutput rain = {
   { 0, 1, 1, 1, 1, 1, 0, 0 },
   { 1, 1, 1, 1, 1, 1, 1, 0 },
@@ -57,7 +58,6 @@ const matrixOutput rain = {
   { 1, 0, 1, 0, 1, 0, 1, 0 }
 };
 
-// New snow icon with cloud and snowflakes
 const matrixOutput snow = {
   { 0, 1, 1, 1, 1, 1, 0, 0 },
   { 1, 1, 1, 1, 1, 1, 1, 0 },
@@ -69,7 +69,6 @@ const matrixOutput snow = {
   { 0, 1, 0, 1, 0, 1, 0, 1 }
 };
 
-// New wind icon with flowing lines
 const matrixOutput wind = {
   { 0, 0, 0, 0, 0, 0, 0, 0 },
   { 1, 1, 1, 1, 1, 1, 0, 0 },
@@ -81,7 +80,6 @@ const matrixOutput wind = {
   { 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 
-// New unknown/question mark icon
 const matrixOutput unknown = {
   { 0, 1, 1, 1, 1, 1, 0, 0 },
   { 1, 1, 0, 0, 0, 1, 1, 0 },
@@ -93,108 +91,172 @@ const matrixOutput unknown = {
   { 0, 0, 1, 1, 0, 0, 0, 0 }
 };
 
+void setup() {
+  Serial.begin(9600);
+
+  initializePins();
+  setWeatherType(SUN);
+
+  Serial.println("=== Weather Display System ===");
+  Serial.println("Commands: SUN, CLOUD, RAIN, SNOW, WIND, UNKNOWN, CLEAR");
+  Serial.println("System ready!");
+}
+
+void loop() {
+  checkSerialInput();
+  displayLedMatrix();
+}
+
+void initializePins() {
+  for (int pin = 0; pin < MATRIX_SIZE; pin++) {
+    pinMode(columns[pin], OUTPUT);
+    pinMode(rows[pin], OUTPUT);
+    // Initialize all pins to HIGH (off state)
+    digitalWrite(columns[pin], HIGH);
+    digitalWrite(rows[pin], LOW);
+  }
+  Serial.println("Pins initialized");
+}
+
 void loadPattern(const matrixOutput pattern) {
-  for (int x = 0; x < 8; x++) {
-    for (int y = 0; y < 8; y++) {
-      pixels[x][y] = pattern[x][y] ? LOW : HIGH;
+  for (int row = 0; row < MATRIX_SIZE; row++) {
+    for (int col = 0; col < MATRIX_SIZE; col++) {
+      // Convert pattern (1 = on, 0 = off) to LED state (LOW = on, HIGH = off)
+      pixels[row][col] = pattern[row][col] ? LOW : HIGH;
     }
   }
 }
 
 void clearMatrix() {
-  for (int x = 0; x < 8; x++) {
-    for (int y = 0; y < 8; y++) {
-      // FIXED: HIGH = LED off (clear state)
-      pixels[x][y] = HIGH;
+  for (int row = 0; row < MATRIX_SIZE; row++) {
+    for (int col = 0; col < MATRIX_SIZE; col++) {
+      pixels[row][col] = HIGH;  // HIGH = LED off
     }
   }
 }
 
-void setup() {
-  Serial.begin(9600);
-
-  // Initialize all pins
-  for (int thisPin = 0; thisPin < 8; thisPin++) {
-    pinMode(columns[thisPin], OUTPUT);
-    pinMode(rows[thisPin], OUTPUT);
-  }
-
-
-  currentWeatherType = SUN;
-  loadWeather();
-
-  Serial.println("Weather display ready!");
-}
-
-void loadWeather() {
-  switch (currentWeatherType) {
-    case SUN:
-      loadPattern(sun);
-      Serial.println("Loaded SUN pattern");
-      break;
-    case CLOUD:
-      loadPattern(cloud);
-      Serial.println("Loaded CLOUD pattern");
-      break;
-    case RAIN:
-      loadPattern(rain);
-      Serial.println("Loaded RAIN pattern");
-      break;
-    default:
-      clearMatrix();
-      Serial.println("Cleared matrix");
-      break;
+const matrixOutput* getWeatherPattern(WeatherType type) {
+  switch (type) {
+    case SUN: return &sun;
+    case CLOUD: return &cloud;
+    case RAIN: return &rain;
+    case SNOW: return &snow;
+    case WIND: return &wind;
+    case UNKNOWN: return &unknown;
+    case CLEAR:
+    default: return nullptr;
   }
 }
 
-void loop() {
-  static unsigned long lastSerialCheck = 0;
+void setWeatherType(WeatherType newType) {
+  if (currentWeatherType == newType) {
+    return;
+  }
 
-  // Check serial less frequently to not interfere with display
-  if (millis() - lastSerialCheck > 50) {
-    if (Serial.available()) {
-      String cmd = Serial.readStringUntil('\n');
-      cmd.trim();
+  WeatherType oldType = currentWeatherType;
+  currentWeatherType = newType;
 
-      WeatherType oldType = currentWeatherType;
+  const matrixOutput* pattern = getWeatherPattern(newType);
 
-      if (cmd == "SUN") currentWeatherType = SUN;
-      else if (cmd == "CLOUD") currentWeatherType = CLOUD;
-      else if (cmd == "RAIN") currentWeatherType = RAIN;
-      else if (cmd == "CLEAR") currentWeatherType = UNKNOWN;
+  if (pattern != nullptr) {
+    loadPattern(*pattern);
+    Serial.print("Weather changed: ");
+    Serial.print(weatherTypeToString(oldType));
+    Serial.print(" -> ");
+    Serial.println(weatherTypeToString(newType));
+  } else {
+    clearMatrix();
+    Serial.println("Matrix cleared");
+  }
+}
 
-      Serial.print("Received: ");
-      Serial.println(cmd);
+void checkSerialInput() {
+  if (millis() - lastSerialCheck < SERIAL_CHECK_INTERVAL) {
+    return;
+  }
 
-      // Only reload if weather type changed
-      if (currentWeatherType != oldType) {
-        loadWeather();
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    command.trim();
+    command.toUpperCase();
+
+    processSerialCommand(command);
+  }
+
+  lastSerialCheck = millis();
+}
+
+
+
+void processSerialCommand(const String& command) {
+  WeatherType newType = stringToWeatherType(command);
+
+  if (newType != currentWeatherType) {
+    setWeatherType(newType);
+  } else {
+    Serial.print("Already displaying: ");
+    Serial.println(command);
+  }
+}
+
+WeatherType stringToWeatherType(const String& str) {
+  if (str == "SUN") return SUN;
+  if (str == "CLOUD") return CLOUD;
+  if (str == "RAIN") return RAIN;
+  if (str == "SNOW") return SNOW;
+  if (str == "WIND") return WIND;
+  if (str == "UNKNOWN") return UNKNOWN;
+  if (str == "CLEAR") return CLEAR;
+
+  Serial.print("Unknown command: ");
+  Serial.println(str);
+  return currentWeatherType;  // No change
+}
+
+const char* weatherTypeToString(WeatherType type) {
+  switch (type) {
+    case SUN: return "SUN";
+    case CLOUD: return "CLOUD";
+    case RAIN: return "RAIN";
+    case SNOW: return "SNOW";
+    case WIND: return "WIND";
+    case UNKNOWN: return "UNKNOWN";
+    case CLEAR: return "CLEAR";
+    default: return "INVALID";
+  }
+}
+
+void displayLedMatrix() {
+  for (int row = 0; row < MATRIX_SIZE; row++) {
+    // Turn on current row
+    digitalWrite(rows[row], HIGH);
+
+    // Set column states for this row
+    for (int col = 0; col < MATRIX_SIZE; col++) {
+      digitalWrite(columns[col], pixels[row][col]);
+
+      // Brief pulse for LED activation
+      if (pixels[row][col] == LOW) {
+        delayMicroseconds(1);
+        digitalWrite(columns[col], HIGH);
       }
     }
-    lastSerialCheck = millis();
-  }
 
-  // Continuously refresh the display
-  displayLedPattern();
+    // Turn off current row
+    digitalWrite(rows[row], LOW);
+  }
 }
 
+void printCurrentPattern() {
+  Serial.print("Current weather: ");
+  Serial.println(weatherTypeToString(currentWeatherType));
 
-
-void displayLedPattern() {
-  for (int thisRow = 0; thisRow < 8; thisRow++) {
-    digitalWrite(rows[thisRow], HIGH);
-    for (int thisCol = 0; thisCol < 8; thisCol++) {
-      // get the state of the current pixel;
-      int thisPixel = pixels[thisRow][thisCol];
-      // when the row is HIGH and the col is LOW,
-      // the LED where they meet turns on:
-      digitalWrite(columns[thisCol], thisPixel);
-      // turn the pixel off:
-      if (thisPixel == LOW) {
-        digitalWrite(columns[thisCol], HIGH);
-      }
+  Serial.println("Pattern:");
+  for (int row = 0; row < MATRIX_SIZE; row++) {
+    for (int col = 0; col < MATRIX_SIZE; col++) {
+      Serial.print(pixels[row][col] == LOW ? "█" : "·");
+      Serial.print(" ");
     }
-    // take the row pin low to turn off the whole row:
-    digitalWrite(rows[thisRow], LOW);
+    Serial.println();
   }
 }
