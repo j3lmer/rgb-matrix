@@ -39,15 +39,21 @@ def sanitize_buienradar_output(output: str) -> str:
 
 
 def map_condition(cond: str) -> str:
-    """Map Buienradar condition string to Arduino command."""
+    """Map Buienradar detailed condition to Arduino command."""
     cond = cond.lower()
-    if "sun" in cond or "clear" in cond:
+
+    if cond in ["clear", "partlycloudy"]:
         return "SUN"
-    elif "cloud" in cond:
+    elif cond in ["cloudy", "partlycloudy-fog"]:
         return "CLOUD"
-    elif "rain" in cond:
+    elif cond in ["light-rain", "partlycloudy-light-rain", "rainy", "snowy-rainy"]:
         return "RAIN"
-    return "UNKNOWN"
+    elif cond in ["light-snow", "partlycloudy-light-snow", "partlycloudy-snow", "snowy"]:
+        return "SNOW"
+    elif cond in ["partlycloudy-lightning", "lightning"]:
+        return "LIGHTNING"
+    else:
+        return "UNKNOWN"
 
 
 def main():

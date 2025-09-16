@@ -18,6 +18,7 @@ enum WeatherType {
   SNOW,
   WIND,
   UNKNOWN,
+  LIGHTNING,
   CLEAR
 };
 
@@ -91,6 +92,17 @@ const matrixOutput unknown = {
   { 0, 0, 1, 1, 0, 0, 0, 0 }
 };
 
+const matrixOutput lightning = {
+  { 0, 0, 1, 0, 0, 0, 0, 0 },
+  { 0, 0, 1, 1, 0, 0, 0, 0 },
+  { 0, 0, 0, 1, 1, 0, 0, 0 },
+  { 0, 1, 0, 0, 1, 0, 0, 0 },
+  { 0, 1, 1, 0, 0, 0, 0, 0 },
+  { 0, 0, 1, 0, 0, 0, 0, 0 },
+  { 0, 0, 1, 0, 0, 0, 0, 0 },
+  { 0, 0, 0, 0, 0, 0, 0, 0 }
+};
+
 void setup() {
   Serial.begin(9600);
 
@@ -98,7 +110,7 @@ void setup() {
   setWeatherType(SUN);
 
   Serial.println("=== Weather Display System ===");
-  Serial.println("Commands: SUN, CLOUD, RAIN, SNOW, WIND, UNKNOWN, CLEAR");
+  Serial.println("Commands: SUN, CLOUD, RAIN, SNOW, WIND, UNKNOWN, LIGHTNING, CLEAR");
   Serial.println("System ready!");
 }
 
@@ -130,7 +142,7 @@ void loadPattern(const matrixOutput pattern) {
 void clearMatrix() {
   for (int row = 0; row < MATRIX_SIZE; row++) {
     for (int col = 0; col < MATRIX_SIZE; col++) {
-      pixels[row][col] = HIGH;  // HIGH = LED off
+      pixels[row][col] = HIGH;
     }
   }
 }
@@ -142,8 +154,8 @@ const matrixOutput* getWeatherPattern(WeatherType type) {
     case RAIN: return &rain;
     case SNOW: return &snow;
     case WIND: return &wind;
+    case LIGHTNING: return &lightning;
     case UNKNOWN: return &unknown;
-    case CLEAR:
     default: return nullptr;
   }
 }
@@ -205,12 +217,12 @@ WeatherType stringToWeatherType(const String& str) {
   if (str == "RAIN") return RAIN;
   if (str == "SNOW") return SNOW;
   if (str == "WIND") return WIND;
+  if (str == "LIGHTNING") return LIGHTNING;
   if (str == "UNKNOWN") return UNKNOWN;
-  if (str == "CLEAR") return CLEAR;
 
   Serial.print("Unknown command: ");
   Serial.println(str);
-  return currentWeatherType;  // No change
+  return currentWeatherType;
 }
 
 const char* weatherTypeToString(WeatherType type) {
@@ -220,11 +232,12 @@ const char* weatherTypeToString(WeatherType type) {
     case RAIN: return "RAIN";
     case SNOW: return "SNOW";
     case WIND: return "WIND";
+    case LIGHTNING: return "LIGHTNING";
     case UNKNOWN: return "UNKNOWN";
-    case CLEAR: return "CLEAR";
     default: return "INVALID";
   }
 }
+
 
 void displayLedMatrix() {
   for (int row = 0; row < MATRIX_SIZE; row++) {
